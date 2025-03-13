@@ -6,6 +6,8 @@ package gos7
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -399,8 +401,18 @@ func (mb *client) Read(variable string, buffer []byte) (value interface{}, err e
 			return
 		}
 		dbNo, _ := strconv.ParseInt(string(string(dbArray[0])[2:]), 10, 16)
-		dbIndex, _ := strconv.ParseInt(string(string(dbArray[1])[3:]), 10, 16)
-		dbType := string(dbArray[1])[0:3]
+		re := regexp.MustCompile(`^([A-Z]+)(\d+)$`)
+		matches := re.FindStringSubmatch(dbArray[1])
+		if matches == nil || (len(matches) != 3) {
+			err = fmt.Errorf("invalid DB format in '%s'", dbArray[1])
+			return
+		}
+		dbType := matches[1]
+		var dbIndex int64
+		dbIndex, err = strconv.ParseInt(matches[2], 10, 16)
+		if err != nil {
+			return
+		}
 
 		switch dbType {
 		case "DBB": //byte
@@ -411,9 +423,16 @@ func (mb *client) Read(variable string, buffer []byte) (value interface{}, err e
 			err = mb.AGReadDB(int(dbNo), int(dbIndex), 2, buffer)
 			value = binary.BigEndian.Uint16(buffer[0:])
 			return
-		case "DBD": //dword
+		case "DBDW": //dword
 			err = mb.AGReadDB(int(dbNo), int(dbIndex), 4, buffer)
 			value = binary.BigEndian.Uint32(buffer[0:])
+			return
+		case "DBD": //float
+			err = mb.AGReadDB(int(dbNo), int(dbIndex), 4, buffer)
+			if err != nil {
+				return
+			}
+			value = math.Float32frombits(binary.BigEndian.Uint32(buffer[0:]))
 			return
 		case "DBX": //bit
 			mBit, _ := strconv.ParseInt(string(string(dbArray[2])[0:]), 10, 16)
@@ -425,14 +444,28 @@ func (mb *client) Read(variable string, buffer []byte) (value interface{}, err e
 			mask := []byte{0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80}
 			value = buffer[0] & mask[mBit]
 			return
-		case "DBS", "S", "STRING": //string
-			mLen, _ := strconv.ParseInt(dbArray[2][0:], 10, 16)
+		case "DBS", "S", "STRING": // string
+			var mLen int64
+			mLen, err = strconv.ParseInt(dbArray[2], 10, 16)
+			if err != nil {
+				return
+			}
 			if mLen > 254 || mLen < 0 {
 				err = fmt.Errorf("Db read string length is invalid")
 				return
 			}
 			err = mb.AGReadDB(int(dbNo), int(dbIndex), int(mLen), buffer)
-			value = string(buffer[0:mLen])
+			if err != nil {
+				return
+			}
+			// In Siemens S7 strings, buffer[0] is max length and buffer[1] is the actual length.
+			actualLen := int(buffer[1])
+			// Ensure we don't read out-of-bounds if actualLen is more than available bytes.
+			if actualLen > int(mLen)-2 {
+				actualLen = int(mLen) - 2
+			}
+			// Get the actual string starting at offset 2.
+			value = string(buffer[2 : 2+actualLen])
 			return
 		case "CHAR", "C":
 			err = mb.AGReadDB(int(dbNo), int(dbIndex), 1, buffer)
