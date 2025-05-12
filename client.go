@@ -450,8 +450,8 @@ func (mb *client) Read(variable string, buffer []byte) (value interface{}, err e
 			if err != nil {
 				return
 			}
-			if mLen > 254 || mLen < 0 {
-				err = fmt.Errorf("Db read string length is invalid")
+			if mLen > 254 || mLen < 3 {
+				err = fmt.Errorf("Db read string length is invalid, first 2 bytes referes to the lenght and actual string lenght")
 				return
 			}
 			err = mb.AGReadDB(int(dbNo), int(dbIndex), int(mLen), buffer)
