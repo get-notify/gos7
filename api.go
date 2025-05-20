@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-//Client interface s7 client
+// Client interface s7 client
 type Client interface {
 	/***************start API AG (Automatisationsgerät)***************/
 	//Read data blocks from PLC
@@ -81,4 +81,6 @@ type Client interface {
 	//write clock to PLC with datetime input
 	PGClockWrite() (dt time.Time, err error)
 	/***************end API AG***************/
+
+	IsConnected() bool // Verify the if transport is != nil and do a simple call to the T database
 }

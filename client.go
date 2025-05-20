@@ -73,6 +73,14 @@ func NewClient2(packager Packager, transporter Transporter) Client {
 	return &client{packager: packager, transporter: transporter}
 }
 
+func (mb *client) IsConnected() bool {
+	if mb.transporter == nil || mb.packager == nil {
+		return false
+	}
+	_, err := mb.GetCPUInfo()
+	return err == nil
+}
+
 // implement of the interface AGReadDB
 func (mb *client) AGReadDB(dbnumber int, start int, size int, buffer []byte) (err error) {
 	return mb.readArea(s7areadb, dbnumber, start, size, s7wlbyte, buffer)
