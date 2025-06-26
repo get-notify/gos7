@@ -429,11 +429,11 @@ func (mb *client) Read(variable string, buffer []byte) (value interface{}, err e
 			return
 		case "DBW": //word
 			err = mb.AGReadDB(int(dbNo), int(dbIndex), 2, buffer)
-			value = binary.BigEndian.Uint16(buffer[0:])
+			value = int16(binary.BigEndian.Uint16(buffer[0:]))
 			return
 		case "DBDW": //dword
 			err = mb.AGReadDB(int(dbNo), int(dbIndex), 4, buffer)
-			value = binary.BigEndian.Uint32(buffer[0:])
+			value = int32(binary.BigEndian.Uint32(buffer[0:]))
 			return
 		case "DBD": //float
 			err = mb.AGReadDB(int(dbNo), int(dbIndex), 4, buffer)
