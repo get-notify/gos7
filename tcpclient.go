@@ -5,6 +5,7 @@ package gos7
 // of the BSD license. See the LICENSE file for details.
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -29,6 +30,16 @@ const (
 	connectionTypePG    = 1 // Connect to the PLC as a PG
 	connectionTypeOP    = 2 // Connect to the PLC as an OP
 	connectionTypeBasic = 3 // Basic connection
+)
+
+type Status uint32
+
+const (
+	Disconnected Status = iota // default (nil) status is disconnected
+	Disconnecting
+	Connecting
+	Reconnecting
+	Connected
 )
 
 // TCPClientHandler implements Packager and Transporter interface.
@@ -92,6 +103,7 @@ type tcpTransporter struct {
 
 	// TCP connection
 	mu           sync.Mutex
+	status       Status
 	conn         net.Conn
 	closeTimer   *time.Timer
 	lastActivity time.Time
@@ -104,6 +116,18 @@ type tcpTransporter struct {
 	LastPDUType                   byte
 
 	PDULength int
+}
+
+func (mb *tcpTransporter) GetStatus() Status {
+	mb.mu.Lock()
+	defer mb.mu.Unlock()
+	return mb.status
+}
+
+func (mb *tcpTransporter) setStatus(status Status) {
+	mb.mu.Lock()
+	defer mb.mu.Unlock()
+	mb.status = status
 }
 
 func (mb *tcpTransporter) setConnectionParameters(address string, localTSAP uint16, remoteTSAP uint16) {
@@ -134,6 +158,7 @@ func (mb *tcpTransporter) Send(request []byte) (response []byte, err error) {
 	}
 	if mb.conn == nil {
 		err = fmt.Errorf("Connection to address %s is null", mb.Address)
+		mb.setStatus(Disconnected)
 		return
 	}
 	if err = mb.conn.SetDeadline(timeout); err != nil {
@@ -142,6 +167,7 @@ func (mb *tcpTransporter) Send(request []byte) (response []byte, err error) {
 	// Send data
 	mb.logf("s7: sending % x", request)
 	if _, err = mb.conn.Write(request); err != nil {
+		mb.setStatus(Disconnected)
 		return
 	}
 	done := false
@@ -187,11 +213,16 @@ func (mb *tcpTransporter) Send(request []byte) (response []byte, err error) {
 // Connect establishes a new connection to the address in Address.
 // Connect and Close are exported so that multiple requests can be done with one session
 func (mb *tcpTransporter) Connect() error {
-	// mb.mu.Lock()
-	// defer mb.mu.Unlock()
-
-	return mb.connect()
+	mb.setStatus(Connecting)
+	err := mb.connect()
+	if err != nil {
+		mb.setStatus(Disconnected)
+	} else {
+		mb.setStatus(Connected)
+	}
+	return err
 }
+
 func (mb *tcpTransporter) tcpConnect() error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
@@ -281,8 +312,13 @@ func (mb *tcpTransporter) startCloseTimer() {
 func (mb *tcpTransporter) Close() error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
-
-	return mb.close()
+	mb.status = Disconnecting
+	err := mb.close()
+	if err != nil {
+		mb.logf("error closing connection: %v", err)
+	}
+	mb.status = Disconnected
+	return err
 }
 
 // flush flushes pending data in the connection,
@@ -296,6 +332,9 @@ func (mb *tcpTransporter) flush(b []byte) (err error) {
 		// Ignore timeout error
 		if netError, ok := err.(net.Error); ok && netError.Timeout() {
 			err = nil
+		}
+		if errors.Is(err, io.EOF) {
+			mb.setStatus(Disconnected)
 		}
 	}
 	return
@@ -327,7 +366,11 @@ func (mb *tcpTransporter) closeIdle() {
 	idle := time.Now().Sub(mb.lastActivity)
 	if idle >= mb.IdleTimeout {
 		mb.logf("s7: closing connection due to idle timeout: %v", idle)
-		mb.close()
+		err := mb.close()
+		if err != nil {
+			mb.logf("s7: error closing connection: %v", err)
+		}
+		mb.setStatus(Disconnected)
 	}
 }
 

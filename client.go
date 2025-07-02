@@ -53,7 +53,7 @@ const (
 //PDULength variable to store pdu length after connect
 //var tt, _ := mb.transporter.(*tcpTransporter)tt, _ := mb.transporter.(*tcpTransporter) int //global variable pdulength
 
-// CliePDULengthntHandler is the interface that groups the Packager and Transporter methods.
+// ClientHandler is the interface that groups the Packager and Transporter methods.
 type ClientHandler interface {
 	Packager
 	Transporter
@@ -68,17 +68,15 @@ func NewClient(handler ClientHandler) Client {
 	return &client{packager: handler, transporter: handler}
 }
 
-// NewClient2 creates a new s7 client with given backend packager and transporter.
-func NewClient2(packager Packager, transporter Transporter) Client {
-	return &client{packager: packager, transporter: transporter}
-}
-
 func (mb *client) IsConnected() bool {
 	if mb.transporter == nil || mb.packager == nil {
 		return false
 	}
-	_, err := mb.GetCPUInfo()
-	return err == nil
+	status := mb.transporter.GetStatus()
+	if status != Connected {
+		return false
+	}
+	return true
 }
 
 // implement of the interface AGReadDB
