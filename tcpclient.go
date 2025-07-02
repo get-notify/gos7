@@ -158,7 +158,7 @@ func (mb *tcpTransporter) Send(request []byte) (response []byte, err error) {
 	}
 	if mb.conn == nil {
 		err = fmt.Errorf("Connection to address %s is null", mb.Address)
-		mb.setStatus(Disconnected)
+		mb.status = Disconnected
 		return
 	}
 	if err = mb.conn.SetDeadline(timeout); err != nil {
@@ -167,7 +167,7 @@ func (mb *tcpTransporter) Send(request []byte) (response []byte, err error) {
 	// Send data
 	mb.logf("s7: sending % x", request)
 	if _, err = mb.conn.Write(request); err != nil {
-		mb.setStatus(Disconnected)
+		mb.status = Disconnected
 		return
 	}
 	done := false
