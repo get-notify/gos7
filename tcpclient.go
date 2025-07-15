@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -119,15 +120,11 @@ type tcpTransporter struct {
 }
 
 func (mb *tcpTransporter) GetStatus() Status {
-	mb.mu.Lock()
-	defer mb.mu.Unlock()
-	return mb.status
+	return Status(atomic.LoadUint32((*uint32)(&mb.status)))
 }
 
 func (mb *tcpTransporter) setStatus(status Status) {
-	mb.mu.Lock()
-	defer mb.mu.Unlock()
-	mb.status = status
+	atomic.StoreUint32((*uint32)(&mb.status), uint32(status))
 }
 
 func (mb *tcpTransporter) setConnectionParameters(address string, localTSAP uint16, remoteTSAP uint16) {
