@@ -9,13 +9,13 @@ import (
 	"strings"
 )
 
-//SZLHeader See §33.1 of "System Software for S7-300/400 System and Standard Functions" and see SFC51 description too
+// SZLHeader See §33.1 of "System Software for S7-300/400 System and Standard Functions" and see SFC51 description too
 type SZLHeader struct {
 	LengthHeader       uint16
 	NumberOfDataRecord uint16
 }
 
-//S7SZL constains header and data
+// S7SZL constains header and data
 type S7SZL struct {
 	Header SZLHeader
 	Data   []byte
@@ -36,7 +36,7 @@ type S7Protection struct {
 	anlSch   uint // anl_sch:Startup switch setting (1:CRST, 2:WRST, 0:undefined, does not exist of cannot be determined)
 }
 
-//S7OrderCode Order Code + Version
+// S7OrderCode Order Code + Version
 type S7OrderCode struct {
 	Code string // such as "6ES7 151-8AB01-0AB0"
 	V1   byte   // Version 1st digit
@@ -44,24 +44,24 @@ type S7OrderCode struct {
 	V3   byte   // Version 3th digit
 }
 
-//S7CpuInfo CPU Info
+// S7CpuInfo CPU Info
 type S7CpuInfo struct {
-	ModuleTypeName string
-	SerialNumber   string
-	ASName         string
-	Copyright      string
-	ModuleName     string
+	ModuleTypeName string `json:"module_type_name,omitempty"`
+	SerialNumber   string `json:"serial_number,omitempty"`
+	ASName         string `json:"as_name,omitempty"`
+	Copyright      string `json:"copyright,omitempty"`
+	ModuleName     string `json:"module_name,omitempty"`
 }
 
-//S7CpInfo cp info
+// S7CpInfo cp info
 type S7CpInfo struct {
-	MaxPduLength   int
-	MaxConnections int
-	MaxMpiRate     int
-	MaxBusRate     int
+	MaxPduLength   int `json:"max_pdu_length,omitempty"`
+	MaxConnections int `json:"max_connections,omitempty"`
+	MaxMpiRate     int `json:"max_mpi_rate,omitempty"`
+	MaxBusRate     int `json:"max_bus_rate,omitempty"`
 }
 
-//implement GetCPUInfo
+// implement GetCPUInfo
 func (mb *client) GetCPUInfo() (info S7CpuInfo, err error) {
 
 	szl, _, err := mb.readSzl(0x001C, 0x000)
@@ -81,7 +81,7 @@ func (mb *client) GetCPUInfo() (info S7CpuInfo, err error) {
 	return
 }
 
-//implement of GetCPInfo
+// implement of GetCPInfo
 func (mb *client) GetCPInfo() (info S7CpInfo, err error) {
 	szl, _, err := mb.readSzl(0x0131, 0x000)
 	if err == nil {
@@ -93,7 +93,7 @@ func (mb *client) GetCPInfo() (info S7CpInfo, err error) {
 	return
 }
 
-//implement of GetOrderCode
+// implement of GetOrderCode
 func (mb *client) GetOrderCode() (info S7OrderCode, err error) {
 	szl, size, err := mb.readSzl(0x0131, 0x000)
 	if err == nil {
@@ -105,7 +105,7 @@ func (mb *client) GetOrderCode() (info S7OrderCode, err error) {
 	return
 }
 
-//internal function readSZL
+// internal function readSZL
 func (mb *client) readSzl(id int, index int) (szl S7SZL, size int, err error) {
 	var dataSZL int
 	offset := 0
