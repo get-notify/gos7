@@ -441,6 +441,10 @@ func (mb *client) Read(variable string, buffer []byte) (value interface{}, err e
 			value = math.Float32frombits(binary.BigEndian.Uint32(buffer[0:]))
 			return
 		case "DBX": //bit
+			if len(dbArray) < 3 {
+				err = fmt.Errorf("db read bit variable should not be empty")
+				return
+			}
 			mBit, _ := strconv.ParseInt(string(string(dbArray[2])[0:]), 10, 16)
 			if mBit > 7 || mBit < 0 {
 				err = fmt.Errorf("Db read bit is invalid")
